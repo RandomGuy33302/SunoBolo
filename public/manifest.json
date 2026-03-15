@@ -1,0 +1,13 @@
+{
+  "name": "SunoBolo – सुनो बोलो",
+  "short_name": "SunoBolo",
+  "description": "English learning app for rural elderly Indians",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8EE",
+  "theme_color": "#FF6B00",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
