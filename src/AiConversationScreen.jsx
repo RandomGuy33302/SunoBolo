@@ -264,7 +264,7 @@ export default function AiConversationScreen({ onBack }) {
       console.error('initChat:', err)
       setMessages([{
         role: 'assistant',
-        content: 'Namaste! Aaj hum English mein baat karenge. Main aapke saath hoon! [नमस्ते! आज हम अंग्रेज़ी में बात करेंगे। मैं आपके साथ हूँ!]',
+        content: `Setup error: ${err.message}. Check browser console (F12 → Console tab) and share the red error with support.`,
       }])
     }
     setLoading(false)
@@ -294,7 +294,7 @@ export default function AiConversationScreen({ onBack }) {
       console.error('sendMessage:', err)
       setMessages(m => [...m, {
         role: 'assistant',
-        content: 'Thodi problem aa gayi, ek baar phir try karein! [थोड़ी problem आई, एक बार फिर try करें!]',
+        content: `Error: ${err.message}. Open browser console (F12) to see full details.`,
       }])
     }
     setLoading(false)
