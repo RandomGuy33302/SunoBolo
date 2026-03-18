@@ -129,7 +129,7 @@ export default function HomeScreen({ progress, onFeature, onSelect }) {
         <h1 style={{ margin: '8px 0 2px', fontSize: 38, fontFamily: "'Baloo 2', cursive", fontWeight: 800, color: '#fff', letterSpacing: -0.5, textShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
           SunoBolo
         </h1>
-        <p style={{ margin: 0, fontSize: 20, letterSpacing: 1, color: 'rgba(255,255,255,0.92)', fontFamily: "'Noto Sans Devanagari', sans-serif' }}>
+        <p style={{ margin: 0, fontSize: 20, letterSpacing: 1, color: 'rgba(255,255,255,0.92)', fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
           सुनो • बोलो • सीखो
         </p>
       </div>
