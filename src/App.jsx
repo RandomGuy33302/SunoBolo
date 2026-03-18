@@ -7,39 +7,37 @@ import {
   loadSentenceCache, saveSentenceCache,
 } from './api.js'
 
-import HomeScreen          from './HomeScreen.jsx'
-import TopicIntroScreen    from './TopicIntroScreen.jsx'
-import LessonScreen        from './LessonScreen.jsx'
-import CelebrationScreen   from './CelebrationScreen.jsx'
-import AiConversationScreen from './AiConversationScreen.jsx'
-import { LoadingScreen }   from './components.jsx'
+import HomeScreen            from './HomeScreen.jsx'
+import TopicIntroScreen      from './TopicIntroScreen.jsx'
+import LessonScreen          from './LessonScreen.jsx'
+import CelebrationScreen     from './CelebrationScreen.jsx'
+import AiConversationScreen  from './AiConversationScreen.jsx'
+import { LoadingScreen }     from './components.jsx'
 
 export default function App() {
-  const [screen, setScreen] = useState('home')
-  // home | topicIntro | lesson | celebration | aiChat
+  // Screens: home | topicIntro | lesson | celebration | aiChat
+  const [screen,          setScreen]         = useState('home')
+  const [selectedTopic,   setSelectedTopic]  = useState(null)
+  const [currentSentences,setCurrentSentences] = useState([])
+  const [sentenceIndex,   setSentenceIndex]  = useState(0)
+  const [loadingRound,    setLoadingRound]   = useState(false)
 
-  const [selectedTopic,    setSelectedTopic]    = useState(null)
-  const [currentSentences, setCurrentSentences] = useState([])
-  const [sentenceIndex,    setSentenceIndex]    = useState(0)
-  const [loadingRound,     setLoadingRound]     = useState(false)
+  const [progress,      setProgressState] = useState(loadProgress)
+  const [sentenceCache, setSentenceCacheState] = useState(loadSentenceCache)
 
-  const [progress,       setProgressState]  = useState(loadProgress)
-  const [sentenceCache,  setSentenceCache]  = useState(loadSentenceCache)
+  function updateProgress(p)   { setProgressState(p);          saveProgress(p) }
+  function updateCache(c)      { setSentenceCacheState(c);      saveSentenceCache(c) }
 
-  function updateProgress(p) { setProgressState(p); saveProgress(p) }
-  function updateCache(c)    { setSentenceCache(c);  saveSentenceCache(c) }
-
-  // ── Select a topic from home ────────────────────────────────────────────────
+  // ── Topic selected from home ──────────────────────────────────────────────
   function handleSelectTopic(topic) {
     setSelectedTopic(topic)
     setScreen('topicIntro')
   }
 
-  // ── Start lesson (fetch or generate sentences) ──────────────────────────────
+  // ── Start a lesson round (fetch/generate sentences) ───────────────────────
   async function handleStartLesson() {
     const p     = progress[selectedTopic.id] || { round: 1, completed: 0 }
     const round = p.round
-
     setLoadingRound(true)
 
     const cached = sentenceCache[selectedTopic.id]?.[round]
@@ -49,20 +47,17 @@ export default function App() {
       sentences = cached
     } else if (round === 1) {
       sentences = STARTER_SENTENCES[selectedTopic.id]
-      const newCache = {
+      updateCache({
         ...sentenceCache,
         [selectedTopic.id]: { ...(sentenceCache[selectedTopic.id] || {}), 1: sentences },
-      }
-      updateCache(newCache)
+      })
     } else {
-      const prevSentences = sentenceCache[selectedTopic.id]?.[round - 1]
-        || STARTER_SENTENCES[selectedTopic.id]
-      sentences = await generateNextRoundSentences(selectedTopic, round, prevSentences)
-      const newCache = {
+      const prev = sentenceCache[selectedTopic.id]?.[round - 1] || STARTER_SENTENCES[selectedTopic.id]
+      sentences  = await generateNextRoundSentences(selectedTopic, round, prev)
+      updateCache({
         ...sentenceCache,
         [selectedTopic.id]: { ...(sentenceCache[selectedTopic.id] || {}), [round]: sentences },
-      }
-      updateCache(newCache)
+      })
     }
 
     setCurrentSentences(sentences)
@@ -71,31 +66,26 @@ export default function App() {
     setScreen('lesson')
   }
 
-  // ── Complete one lesson sentence ────────────────────────────────────────────
+  // ── Complete one sentence in lesson ───────────────────────────────────────
   function handleLessonComplete() {
     const next = sentenceIndex + 1
     if (next < currentSentences.length) {
       setSentenceIndex(next)
     } else {
-      // Round complete — bump round number
-      const p       = progress[selectedTopic.id] || { round: 1, completed: 0 }
-      const newP    = {
+      const p   = progress[selectedTopic.id] || { round: 1, completed: 0 }
+      updateProgress({
         ...progress,
         [selectedTopic.id]: {
           round:     p.round + 1,
           completed: (p.completed || 0) + currentSentences.length,
         },
-      }
-      updateProgress(newP)
+      })
       setScreen('celebration')
     }
   }
 
-  const currentRound = selectedTopic
-    ? (progress[selectedTopic.id]?.round || 1)
-    : 1
+  const currentRound = selectedTopic ? (progress[selectedTopic.id]?.round || 1) : 1
 
-  // ── Loading overlay ─────────────────────────────────────────────────────────
   if (loadingRound) return <LoadingScreen topic={selectedTopic} />
 
   return (
@@ -104,6 +94,7 @@ export default function App() {
         <HomeScreen
           progress={progress}
           onSelect={handleSelectTopic}
+          onAiChat={() => setScreen('aiChat')}
         />
       )}
 
@@ -135,11 +126,8 @@ export default function App() {
         />
       )}
 
-      {screen === 'aiChat' && selectedTopic && (
+      {screen === 'aiChat' && (
         <AiConversationScreen
-          topic={selectedTopic}
-          round={currentRound}
-          sentences={currentSentences}
           onBack={() => setScreen('home')}
         />
       )}
