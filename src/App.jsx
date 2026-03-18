@@ -16,6 +16,7 @@ import EmergencyScreen       from './EmergencyScreen.jsx'
 import SpeedTrainerScreen    from './SpeedTrainerScreen.jsx'
 import PointLearnScreen      from './PointLearnScreen.jsx'
 import MeeraHelperScreen     from './MeeraHelperScreen.jsx'
+import VoiceSelectorScreen   from './VoiceSelectorScreen.jsx'
 import { LoadingScreen }     from './components.jsx'
 
 // Screens: home | topicIntro | lesson | celebration | aiChat
@@ -37,11 +38,12 @@ export default function App() {
   // ── Feature card navigation ───────────────────────────────────────────────
   function handleFeature(id) {
     const map = {
-      aiChat:       'aiChat',
-      emergency:    'emergency',
-      speedTrainer: 'speedTrainer',
-      pointLearn:   'pointLearn',
-      meeraHelper:  'meeraHelper',
+      aiChat:        'aiChat',
+      emergency:     'emergency',
+      speedTrainer:  'speedTrainer',
+      pointLearn:    'pointLearn',
+      meeraHelper:   'meeraHelper',
+      voiceSelector: 'voiceSelector',
     }
     if (map[id]) setScreen(map[id])
   }
@@ -133,6 +135,10 @@ export default function App() {
 
       {screen === 'meeraHelper' && (
         <MeeraHelperScreen onBack={goHome} />
+      )}
+
+      {screen === 'voiceSelector' && (
+        <VoiceSelectorScreen onBack={goHome} />
       )}
 
       {screen === 'topicIntro' && selectedTopic && (

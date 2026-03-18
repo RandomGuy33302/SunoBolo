@@ -62,6 +62,18 @@ const FEATURE_CARDS = [
     badgeBg: '#e74c3c',
     glow:    'rgba(142,68,173,0.3)',
   },
+  {
+    id:      'voiceSelector',
+    emoji:   '🎙️',
+    title:   'Awaaz Chunein',
+    en:      "Choose Meera Didi's Voice",
+    desc:    'मीरा दीदी की आवाज़ खुद चुनें — सुनकर पसंद करें',
+    pills:   ['🔊 Preview All', '♀ Female First', '🇮🇳 Indian'],
+    bg:      'linear-gradient(135deg, #1a3a2a, #1e6b45, #27ae60)',
+    badge:   '⚙️ SET ONCE',
+    badgeBg: '#f39c12',
+    glow:    'rgba(39,174,96,0.3)',
+  },
 ]
 
 function FeatureCard({ card, onClick }) {
