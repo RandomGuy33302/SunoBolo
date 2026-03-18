@@ -2,9 +2,20 @@ const PROXY  = '/api/chat'
 const MODEL  = 'llama-3.3-70b-versatile'
 const VISION = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
-// ── Voice cache ───────────────────────────────────────────────────────────────
-let _voicesCache = null
+// ── User profile storage ──────────────────────────────────────────────────────
+const NAME_KEY  = 'sunobolo_user_name'
+const VOICE_KEY = 'sunobolo_voice_name'
 
+export function getUserName()    { return localStorage.getItem(NAME_KEY)  || '' }
+export function saveUserName(n)  { localStorage.setItem(NAME_KEY,  n.trim()) }
+export function getSavedVoiceName() { return localStorage.getItem(VOICE_KEY) || null }
+export function saveVoiceName(n)    { localStorage.setItem(VOICE_KEY, n) }
+export function isProfileComplete() {
+  return !!getUserName() && !!getSavedVoiceName()
+}
+
+// ── Voice loading ─────────────────────────────────────────────────────────────
+let _voicesCache = null
 export function getAllVoices() {
   return new Promise(resolve => {
     if (_voicesCache && _voicesCache.length > 0) { resolve(_voicesCache); return }
@@ -12,91 +23,45 @@ export function getAllVoices() {
     if (v.length > 0) { _voicesCache = v; resolve(v); return }
     let done = false
     const finish = () => {
-      if (done) return
-      done = true
-      _voicesCache = window.speechSynthesis.getVoices()
-      resolve(_voicesCache)
+      if (done) return; done = true
+      _voicesCache = window.speechSynthesis.getVoices(); resolve(_voicesCache)
     }
     window.speechSynthesis.onvoiceschanged = finish
     setTimeout(finish, 2500)
   })
 }
 
-// ── User-chosen voice (persisted in localStorage) ────────────────────────────
-const VOICE_KEY = 'sunobolo_voice_name'
-
-export function getSavedVoiceName() {
-  return localStorage.getItem(VOICE_KEY) || null
-}
-
-export function saveVoiceName(name) {
-  localStorage.setItem(VOICE_KEY, name)
-}
-
 export async function getActiveVoice() {
   const voices = await getAllVoices()
   const saved  = getSavedVoiceName()
-
-  // 1. Use the user's saved choice if it still exists on this device
   if (saved) {
     const found = voices.find(v => v.name === saved)
     if (found) return found
   }
-
-  // 2. Auto-pick best female voice — try en-IN first, then any English female
-  // Known female Indian English voice names across platforms
-  const femaleIndicators = [
-    'raveena', 'heera', 'priya', 'ananya', 'divya',
-    'aditi', 'lekha', 'veena', 'kanya', 'neerja',
-    'female', 'woman', 'girl',
-    'zira', 'samantha', 'victoria', 'moira', 'tessa',
-    'siri', 'google uk english female',
-  ]
-  const maleIndicators = [
-    'male', 'man', ' guy', 'rishi', 'daniel', 'alex',
-    'david', 'james', 'google uk english male',
-    'microsoft david', 'microsoft mark', 'fred',
-  ]
-
-  function isFemale(v) {
-    const n = v.name.toLowerCase()
-    return femaleIndicators.some(f => n.includes(f)) &&
-           !maleIndicators.some(m => n.includes(m))
-  }
-
-  // Priority order: en-IN female → en-IN any → en-GB female → en female
+  // Smart default: prefer en-IN female, then any female English
+  const femaleHints = ['raveena','heera','priya','ananya','divya','aditi','lekha','veena','kanya','female','woman','girl','zira','samantha','victoria','moira','tessa']
+  const maleHints   = ['male','man','rishi','daniel','alex','david','james','mark','fred','google uk english male','microsoft david']
+  const isFemale = v => { const n = v.name.toLowerCase(); return femaleHints.some(f => n.includes(f)) && !maleHints.some(m => n.includes(m)) }
   return (
     voices.find(v => v.lang === 'en-IN' && isFemale(v)) ||
     voices.find(v => v.lang === 'en-IN') ||
     voices.find(v => v.lang.startsWith('en-IN')) ||
-    voices.find(v => v.lang === 'en-GB' && isFemale(v)) ||
     voices.find(v => v.lang.startsWith('en') && isFemale(v)) ||
     voices.find(v => v.lang.startsWith('en')) ||
-    voices[0] ||
-    null
+    voices[0] || null
   )
 }
 
-// ── Core speak function ───────────────────────────────────────────────────────
+// ── Speech ────────────────────────────────────────────────────────────────────
 export async function speakEnglish(text, rate = 0.78) {
   if (!window.speechSynthesis || !text?.trim()) return
   stopSpeech()
   await new Promise(r => setTimeout(r, 80))
-
   const voice = await getActiveVoice()
-  const u     = new SpeechSynthesisUtterance(text.trim())
-
-  if (voice) {
-    u.voice = voice
-    u.lang  = voice.lang  // Match lang to the chosen voice
-  } else {
-    u.lang = 'en-IN'
-  }
-
-  u.rate   = rate
-  u.pitch  = 1.1
-  u.volume = 1.0
-
+  const u = new SpeechSynthesisUtterance(text.trim())
+  if (voice) { u.voice = voice; u.lang = voice.lang }
+  else u.lang = 'en-IN'
+  u.rate = rate; u.pitch = 1.1; u.volume = 1.0
   window.speechSynthesis.speak(u)
 }
 
@@ -104,22 +69,15 @@ export async function speakHindi(text) {
   if (!window.speechSynthesis || !text?.trim()) return
   stopSpeech()
   await new Promise(r => setTimeout(r, 80))
-
-  const voices = await getAllVoices()
-  const hindiVoice =
-    voices.find(v => v.lang === 'hi-IN') ||
-    voices.find(v => v.lang.startsWith('hi'))
-
+  const voices     = await getAllVoices()
+  const hindiVoice = voices.find(v => v.lang === 'hi-IN') || voices.find(v => v.lang.startsWith('hi'))
   const u = new SpeechSynthesisUtterance(text.trim())
-  if (hindiVoice) { u.voice = hindiVoice; u.lang = hindiVoice.lang }
-  else u.lang = 'hi-IN'
+  if (hindiVoice) { u.voice = hindiVoice; u.lang = hindiVoice.lang } else u.lang = 'hi-IN'
   u.rate = 0.82; u.pitch = 1.1; u.volume = 1.0
   window.speechSynthesis.speak(u)
 }
 
-export function stopSpeech() {
-  window.speechSynthesis?.cancel()
-}
+export function stopSpeech() { window.speechSynthesis?.cancel() }
 
 // ── Image compression ─────────────────────────────────────────────────────────
 export function compressImage(file, maxWidth = 800, quality = 0.72) {
@@ -146,13 +104,11 @@ export function compressImage(file, maxWidth = 800, quality = 0.72) {
   })
 }
 
-// ── API call ──────────────────────────────────────────────────────────────────
+// ── API ───────────────────────────────────────────────────────────────────────
 export async function callClaude(messages, systemPrompt = '', useVision = false) {
   const body = { model: useVision ? VISION : MODEL, max_tokens: 1200, messages }
   if (systemPrompt) body.system = systemPrompt
-  const res = await fetch(PROXY, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  })
+  const res = await fetch(PROXY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error || `API error ${res.status}`) }
   const data = await res.json()
   return data.content?.map(b => b.text || '').join('') || ''
@@ -160,19 +116,16 @@ export async function callClaude(messages, systemPrompt = '', useVision = false)
 
 export async function translateToHindi(sentence) {
   return callClaude(
-    [{ role: 'user', content: `Translate to Hindi Devanagari only, no romanization: "${sentence}"` }],
+    [{ role: 'user', content: `Translate to Hindi Devanagari only: "${sentence}"` }],
     'Reply with ONLY the Hindi Devanagari translation. No romanization, no explanation.'
   )
 }
 
 export async function generateNextRoundSentences(topic, round, prevSentences) {
-  const difficulty =
-    round <= 2 ? 'very short and simple (4–6 words)' :
-    round <= 4 ? 'medium length, specific (7–10 words)' :
-                 'full conversational (10–15 words)'
+  const difficulty = round <= 2 ? 'very short simple (4–6 words)' : round <= 4 ? 'medium specific (7–10 words)' : 'full conversational (10–15 words)'
   try {
     const raw = await callClaude(
-      [{ role: 'user', content: `Generate 5 NEW practical English sentences for an elderly rural Indian learner.\nTopic: "${topic.en}" (${topic.hi})\nRound ${round} — difficulty: ${difficulty}\nDo NOT repeat: ${prevSentences.join(' | ')}\nReturn ONLY a valid JSON array of exactly 5 strings.` }],
+      [{ role: 'user', content: `Generate 5 NEW practical English sentences for elderly rural Indian learner.\nTopic: "${topic.en}" (${topic.hi})\nRound ${round} — ${difficulty}\nDo NOT repeat: ${prevSentences.join(' | ')}\nReturn ONLY a valid JSON array of 5 strings.` }],
       'Output only a valid JSON array of 5 strings. Nothing else.'
     )
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
