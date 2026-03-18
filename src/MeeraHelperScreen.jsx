@@ -1,80 +1,65 @@
 import { useState, useRef } from 'react'
 import { C } from './constants.js'
-import { speakEnglish, speakHindi } from './api.js'
+import { speakEnglish, compressImage } from './api.js'
 
-// ── Call Groq with optional image ─────────────────────────────────────────────
+const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
+const TEXT_MODEL   = 'llama-3.3-70b-versatile'
+
+const SYSTEM = `You are Meera Didi — a warm, helpful assistant for elderly rural Indians learning English.
+The user may write in Hindi or broken English, speak a question, or show an image.
+Help with ANYTHING: translating, explaining, answering questions, filling forms, reading signs, understanding medicines.
+
+ALWAYS respond in BOTH English and Hindi:
+- Give English answer first, then Hindi in [square brackets] right after each sentence.
+- Keep language simple, warm, encouraging.
+- If they ask in Hindi, answer Hindi first then English.
+- If they show a form or document, explain every field in simple Hindi.
+- If they ask how to say something, give the sentence + simple pronunciation tip.
+Be like a helpful, educated neighbour who speaks both Hindi and English fluently.`
+
 async function askMeera(text, image, voiceText) {
   const combinedInput = [
     voiceText && `Voice input: "${voiceText}"`,
-    text      && `Text input: "${text}"`,
-    image     && 'Image is also attached.',
-  ].filter(Boolean).join('\n')
+    text.trim() && `Text input: "${text.trim()}"`,
+    image && 'An image is also attached — please analyse it too.',
+  ].filter(Boolean).join('\n') || 'Please help me.'
 
-  const systemPrompt = `You are Meera Didi — a warm, helpful assistant for elderly rural Indians who are learning English.
+  const useVision = !!image
+  const model     = useVision ? VISION_MODEL : TEXT_MODEL
 
-The user may give you text in Hindi or broken English, speak a question, or show you an image.
-Your job is to help them with ANYTHING they need — translating, explaining, answering questions, helping with forms, reading signs, understanding medicine labels, or just answering a question.
-
-ALWAYS respond in BOTH English and Hindi:
-- Give the English answer first
-- Then the Hindi explanation in [square brackets] immediately after each sentence
-- Keep language simple, warm, and encouraging
-- If they ask something in Hindi, answer in Hindi first then English
-- If they show a form or document, explain every field in simple Hindi
-- If they ask how to say something in English, give the sentence + pronunciation guide
-
-Be like a helpful, educated neighbor who speaks both Hindi and English fluently.`
-
-  const userContent = []
-
-  if (image) {
-    userContent.push({
-      type:      'image_url',
-      image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
-    })
-  }
-
-  userContent.push({
-    type: 'text',
-    text: combinedInput || 'Please help me.',
-  })
+  const userContent = useVision
+    ? [
+        { type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.base64}` } },
+        { type: 'text', text: combinedInput },
+      ]
+    : combinedInput
 
   const res = await fetch('/api/chat', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model:      image ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile',
+      model,
       max_tokens: 1200,
-      messages:   [{ role: 'user', content: image ? userContent : combinedInput }],
-      system:     systemPrompt,
+      system:   SYSTEM,
+      messages: [{ role: 'user', content: userContent }],
     }),
   })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err?.error || `Error ${res.status}`)
+    throw new Error(err?.error || `Server error ${res.status}`)
   }
   const data = await res.json()
   return data.content?.[0]?.text || ''
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload  = () => resolve(r.result.split(',')[1])
-    r.onerror = reject
-    r.readAsDataURL(file)
-  })
-}
-
-// ── Parse and render bilingual response ───────────────────────────────────────
 function ResponseBubble({ text }) {
   const lines = text.split('\n').filter(l => l.trim())
   return (
     <div style={{
       background: '#fff', borderRadius: 22, padding: '18px 16px',
       boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-      border: '1.5px solid rgba(255,107,0,0.1)',
+      border: '1.5px solid rgba(142,68,173,0.12)',
       animation: 'fadeIn 0.3s ease',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -83,10 +68,10 @@ function ResponseBubble({ text }) {
           background: `linear-gradient(135deg, ${C.saffron}, ${C.gold})`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
         }}>🙋‍♀️</div>
-        <span style={{ fontSize: 15, fontFamily: "'Baloo 2', cursive", fontWeight: 700, color: C.saffron }}>Meera Didi</span>
+        <span style={{ fontSize: 15, fontFamily: "'Baloo 2', cursive", fontWeight: 700, color: '#6C3483' }}>Meera Didi</span>
       </div>
       {lines.map((line, i) => {
-        const hasHindi = /[\u0900-\u097F]/.test(line)
+        const hasHindi  = /[\u0900-\u097F]/.test(line)
         const isBracket = line.startsWith('[') && line.endsWith(']')
         return (
           <p key={i} style={{
@@ -96,7 +81,7 @@ function ResponseBubble({ text }) {
             color: isBracket ? C.textMid : C.text,
             lineHeight: 1.65,
             paddingLeft: isBracket ? 10 : 0,
-            borderLeft: isBracket ? `3px solid ${C.saffron}44` : 'none',
+            borderLeft: isBracket ? '3px solid #8E44AD44' : 'none',
           }}>
             {isBracket ? `🇮🇳 ${line.slice(1, -1)}` : line}
           </p>
@@ -106,32 +91,38 @@ function ResponseBubble({ text }) {
   )
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
 export default function MeeraHelperScreen({ onBack }) {
-  const [textInput,  setTextInput]  = useState('')
-  const [image,      setImage]      = useState(null)
-  const [voiceText,  setVoiceText]  = useState('')
-  const [response,   setResponse]   = useState('')
-  const [loading,    setLoading]    = useState(false)
-  const [listening,  setListening]  = useState(false)
-  const [error,      setError]      = useState('')
-  const [history,    setHistory]    = useState([])
-  const fileRef     = useRef(null)
-  const cameraRef   = useRef(null)
+  const [textInput,    setTextInput]    = useState('')
+  const [image,        setImage]        = useState(null)
+  const [voiceText,    setVoiceText]    = useState('')
+  const [response,     setResponse]     = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [listening,    setListening]    = useState(false)
+  const [compressing,  setCompressing]  = useState(false)
+  const [error,        setError]        = useState('')
+  const fileRef   = useRef(null)
+  const cameraRef = useRef(null)
 
   async function handleFile(file) {
     if (!file?.type.startsWith('image/')) return
-    const base64 = await fileToBase64(file)
-    const url    = URL.createObjectURL(file)
-    setImage({ base64, mimeType: file.type, url })
+    setCompressing(true); setError('')
+    try {
+      const compressed = await compressImage(file, 800, 0.72)
+      setImage(compressed)
+    } catch (e) {
+      setError('Image load nahi hui: ' + e.message)
+    }
+    setCompressing(false)
   }
 
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { alert('Kripya Chrome use karein.'); return }
+    if (!SR) { alert('Kripya Chrome browser use karein speech ke liye.'); return }
+    if (listening) return
     setListening(true)
     const r = new SR()
-    r.lang = 'hi-IN'             // Accept Hindi voice input
+    // Accept both Hindi and English voice
+    r.lang = 'hi-IN'
     r.continuous = false; r.interimResults = false
     r.onresult = e => { setVoiceText(e.results[0][0].transcript); setListening(false) }
     r.onerror  = () => setListening(false)
@@ -145,10 +136,7 @@ export default function MeeraHelperScreen({ onBack }) {
     try {
       const answer = await askMeera(textInput, image, voiceText)
       setResponse(answer)
-      setHistory(h => [{ text: textInput, voice: voiceText, hasImage: !!image, answer }, ...h.slice(0, 4)])
-      // Auto-speak the response (English only)
-      const englishOnly = answer.replace(/\[.*?\]/g, '').trim()
-      speakEnglish(englishOnly)
+      speakEnglish(answer.replace(/\[.*?\]/g, '').trim())
     } catch (e) {
       setError('Error: ' + e.message)
     }
@@ -162,11 +150,11 @@ export default function MeeraHelperScreen({ onBack }) {
   const hasInput = textInput.trim() || image || voiceText
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #fff8ee, #fff1d6)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #fdf2ff, #f5e8ff)', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <div style={{
-        background: `linear-gradient(135deg, #6C3483, #8E44AD)`,
+        background: 'linear-gradient(135deg, #4a1260, #6C3483, #8E44AD)',
         padding: '20px 18px 18px',
         borderRadius: '0 0 28px 28px',
         boxShadow: '0 8px 28px rgba(108,52,131,0.4)',
@@ -182,13 +170,13 @@ export default function MeeraHelperScreen({ onBack }) {
               🤖 Meera Helper
             </div>
             <div style={{ fontSize: 13, fontFamily: "'Noto Sans Devanagari', sans-serif", color: 'rgba(255,255,255,0.88)' }}>
-              कुछ भी पूछें — text, photo, ya bolkar
+              कुछ भी पूछें — text, photo, या बोलकर
             </div>
           </div>
         </div>
         <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 14, padding: '10px 14px' }}>
           <p style={{ margin: 0, fontSize: 14, fontFamily: "'Noto Sans Devanagari', sans-serif", color: '#fff', lineHeight: 1.5 }}>
-            💜 कोई भी सवाल — English में, Hindi में, या photo दिखाकर — Meera Didi हमेशा मदद करेंगी।
+            💜 कोई भी सवाल — Hindi या English में, या photo दिखाकर। Meera Didi हमेशा मदद करेंगी।
           </p>
         </div>
       </div>
@@ -198,10 +186,10 @@ export default function MeeraHelperScreen({ onBack }) {
         {/* Quick prompts */}
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
           {[
-            'How to say "मुझे दर्द है" in English?',
+            '"मुझे दर्द है" English mein?',
             'What does "emergency" mean?',
-            'How to fill name in a form?',
-            'How to say thank you politely?',
+            'Form mein name kaise likhein?',
+            'Thank you politely kaise bolein?',
           ].map((q, i) => (
             <button key={i} onClick={() => setTextInput(q)} style={{
               background: '#fff', border: '1.5px solid #8E44AD33',
@@ -219,23 +207,22 @@ export default function MeeraHelperScreen({ onBack }) {
           boxShadow: '0 4px 20px rgba(0,0,0,0.07)',
           border: '1.5px solid rgba(142,68,173,0.15)',
         }}>
-
           {/* Text input */}
           <textarea
             value={textInput}
             onChange={e => setTextInput(e.target.value)}
-            placeholder="यहाँ लिखें — Hindi या English में... (Type your question here)"
+            placeholder="यहाँ लिखें — Hindi या English में... (Type your question)"
             rows={3}
             style={{
               width: '100%', border: '2px solid #8E44AD22', borderRadius: 14,
               padding: '12px 14px', fontSize: 16,
               fontFamily: "'Noto Sans Devanagari', sans-serif",
-              background: '#faf5ff', color: C.text, resize: 'none',
-              boxSizing: 'border-box', lineHeight: 1.6,
+              background: '#faf5ff', color: C.text,
+              resize: 'none', boxSizing: 'border-box', lineHeight: 1.6,
             }}
           />
 
-          {/* Voice input result */}
+          {/* Voice result */}
           {voiceText && (
             <div style={{
               background: '#f5f0ff', borderRadius: 12, padding: '10px 14px',
@@ -253,7 +240,14 @@ export default function MeeraHelperScreen({ onBack }) {
           )}
 
           {/* Image preview */}
-          {image && (
+          {compressing && (
+            <div style={{ marginTop: 10, textAlign: 'center', padding: 10 }}>
+              <p style={{ fontFamily: "'Noto Sans Devanagari', sans-serif", color: C.textMid, fontSize: 14 }}>
+                ⏳ Photo tayaar ho rahi hai...
+              </p>
+            </div>
+          )}
+          {image && !compressing && (
             <div style={{ position: 'relative', marginTop: 10, borderRadius: 14, overflow: 'hidden' }}>
               <img src={image.url} alt="Attached" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block' }} />
               <button onClick={() => setImage(null)} style={{
@@ -265,9 +259,8 @@ export default function MeeraHelperScreen({ onBack }) {
             </div>
           )}
 
-          {/* Action row */}
+          {/* Action buttons */}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            {/* Mic */}
             <button onClick={startListening} style={{
               width: 50, height: 50, borderRadius: '50%', border: 'none', flexShrink: 0,
               background: listening ? '#EE4444' : '#8E44AD',
@@ -277,7 +270,6 @@ export default function MeeraHelperScreen({ onBack }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>🎤</button>
 
-            {/* Camera */}
             <button onClick={() => cameraRef.current?.click()} style={{
               width: 50, height: 50, borderRadius: '50%', border: 'none', flexShrink: 0,
               background: '#2980B9', fontSize: 20, cursor: 'pointer',
@@ -287,7 +279,6 @@ export default function MeeraHelperScreen({ onBack }) {
             <input ref={cameraRef} type="file" accept="image/*" capture="environment"
               style={{ display: 'none' }} onChange={e => e.target.files[0] && handleFile(e.target.files[0])} />
 
-            {/* Gallery */}
             <button onClick={() => fileRef.current?.click()} style={{
               width: 50, height: 50, borderRadius: '50%', border: 'none', flexShrink: 0,
               background: '#27AE60', fontSize: 20, cursor: 'pointer',
@@ -297,13 +288,12 @@ export default function MeeraHelperScreen({ onBack }) {
             <input ref={fileRef} type="file" accept="image/*"
               style={{ display: 'none' }} onChange={e => e.target.files[0] && handleFile(e.target.files[0])} />
 
-            {/* Ask button */}
             <button onClick={handleAsk} disabled={!hasInput || loading} style={{
               flex: 1, borderRadius: 16, border: 'none',
               background: hasInput && !loading ? 'linear-gradient(135deg, #6C3483, #8E44AD)' : '#ddd',
               color: '#fff', fontSize: 17, fontFamily: "'Baloo 2', cursive", fontWeight: 700,
               cursor: hasInput && !loading ? 'pointer' : 'not-allowed',
-              boxShadow: hasInput ? '0 5px 16px rgba(142,68,173,0.4)' : 'none',
+              boxShadow: hasInput && !loading ? '0 5px 16px rgba(142,68,173,0.4)' : 'none',
               transition: 'all 0.2s',
             }}>
               {loading ? '⏳' : '🙋‍♀️ Poocho!'}
@@ -313,10 +303,7 @@ export default function MeeraHelperScreen({ onBack }) {
 
         {/* Loading */}
         {loading && (
-          <div style={{
-            background: '#fff', borderRadius: 20, padding: '24px', textAlign: 'center',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.07)',
-          }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: '24px', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.07)' }}>
             <div style={{
               width: 50, height: 50, margin: '0 auto 12px',
               border: '5px solid #f0e6ff', borderTop: '5px solid #8E44AD',
