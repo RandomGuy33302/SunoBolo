@@ -1,67 +1,85 @@
 # 🌸 SunoBolo — सुनो बोलो
 
-English learning app for rural elderly Hindi-speaking Indians.
+English learning app for rural elderly Hindi-speaking Indians — powered by Meera Didi AI.
 
 ---
 
-## 🚀 Deploy to Vercel (FREE) — 5 Minutes
+## 🚀 Deploy to Vercel (FREE) — 10 Minutes
 
-### Step 1 — Create accounts (free)
-- Go to https://github.com and create an account
-- Go to https://vercel.com and sign up with your GitHub account
+### Step 1 — Get your Anthropic API key
+1. Go to https://console.anthropic.com
+2. Sign up / log in → click **API Keys** → **Create Key**
+3. Copy the key (starts with `sk-ant-...`) — save it safely
 
-### Step 2 — Upload the code to GitHub
+### Step 2 — Create accounts (free)
+- https://github.com → create account
+- https://vercel.com → sign up with GitHub
+
+### Step 3 — Upload code to GitHub
 1. Go to https://github.com/new
-2. Name it `sunobolo`, click **Create repository**
+2. Name it `sunobolo` → click **Create repository**
 3. Click **uploading an existing file**
-4. Drag the entire `sunobolo` folder contents and upload
+4. Drag all files from the `sunobolo` folder and upload
 5. Click **Commit changes**
 
-### Step 3 — Deploy on Vercel
+### Step 4 — Deploy on Vercel
 1. Go to https://vercel.com/dashboard
-2. Click **Add New Project**
-3. Import your `sunobolo` GitHub repo
-4. Click **Deploy** (no settings to change!)
-5. ✅ Done! Your app is live at `sunobolo.vercel.app`
+2. Click **Add New Project** → Import `sunobolo`
+3. Click **Deploy** (no build settings to change)
+
+### Step 5 — Add your API key ⭐ IMPORTANT
+Without this step the AI chat will not work!
+
+1. In Vercel dashboard → your project → **Settings** tab
+2. Click **Environment Variables** in the left menu
+3. Click **Add New**:
+   - Name:  `ANTHROPIC_API_KEY`
+   - Value: `sk-ant-...` (your key from Step 1)
+4. Click **Save**
+5. Go to **Deployments** → click the 3 dots on the latest deployment → **Redeploy**
+
+✅ Done! Your app is now live at `sunobolo.vercel.app` with AI working!
 
 ---
 
 ## 📱 Install as a Phone App (PWA)
 
-Once deployed, open the link on your phone:
-
-**On Android (Chrome):**
+**Android (Chrome):**
 1. Open the app URL in Chrome
-2. Tap the 3-dot menu → "Add to Home Screen"
-3. Tap "Add"
-4. App icon appears on your home screen!
+2. Tap menu (3 dots) → **Add to Home Screen** → **Add**
 
-**On iPhone (Safari):**
+**iPhone (Safari):**
 1. Open the app URL in Safari
-2. Tap the Share button (box with arrow)
-3. Scroll down → "Add to Home Screen"
-4. Tap "Add"
+2. Tap Share button → **Add to Home Screen** → **Add**
+
+The app icon 🌸 appears on the home screen like a native app.
 
 ---
 
 ## 💻 Run Locally (for testing)
 
 ```bash
-# Install Node.js from https://nodejs.org first
+# Requires Node.js from https://nodejs.org
 
 cd sunobolo
 npm install
-npm run dev
 
-# Open http://localhost:5173 in Chrome
+# Create a .env.local file with your key:
+echo "ANTHROPIC_API_KEY=sk-ant-YOUR_KEY_HERE" > .env.local
+
+# Run with Vercel CLI for serverless functions to work:
+npm install -g vercel
+vercel dev
+
+# OR run with just Vite (AI chat won't work without the proxy):
+npm run dev
 ```
 
 ---
 
-## 🎤 Voice Features — Use Chrome!
-
-Speech recognition and text-to-speech work best in **Google Chrome**.
-On mobile, use **Chrome for Android** or **Safari for iOS**.
+## 🎤 Voice — Use Chrome!
+Speech recognition and text-to-speech work best in Google Chrome on Android or desktop.
+On iPhone, use Safari.
 
 ---
 
@@ -69,42 +87,37 @@ On mobile, use **Chrome for Android** or **Safari for iOS**.
 
 ```
 sunobolo/
-├── index.html              # Entry HTML
-├── package.json            # Dependencies
-├── vite.config.js          # Build config
+├── api/
+│   └── chat.js              # Vercel serverless proxy → Anthropic API
 ├── public/
-│   ├── manifest.json       # PWA manifest (installable app)
-│   └── icon.svg            # App icon
-└── src/
-    ├── main.jsx            # React entry
-    ├── App.jsx             # Root app + routing
-    ├── index.css           # Global styles + animations
-    ├── constants.js        # Topics, colors, starter sentences
-    ├── api.js              # Claude API + speech helpers
-    ├── components.jsx      # Shared UI: BigBtn, Card, MeeraDidi...
-    ├── HomeScreen.jsx      # Topic selection grid
-    ├── TopicIntroScreen.jsx # Topic intro + round info
-    ├── LessonScreen.jsx    # 3-step lesson: See→Speak→Match
-    ├── CelebrationScreen.jsx # Round complete screen
-    └── AiConversationScreen.jsx # AI chat with Meera Didi
+│   ├── manifest.json        # PWA manifest
+│   └── icon.svg             # App icon
+├── src/
+│   ├── App.jsx              # Root + routing
+│   ├── api.js               # API calls + speech helpers
+│   ├── constants.js         # Topics, colors, sentences
+│   ├── components.jsx       # Shared UI components
+│   ├── HomeScreen.jsx       # Home with AI chat hero card
+│   ├── TopicIntroScreen.jsx # Topic intro
+│   ├── LessonScreen.jsx     # 3-step lesson
+│   ├── CelebrationScreen.jsx
+│   └── AiConversationScreen.jsx  # Meera Didi AI tutor
+├── index.html
+├── package.json
+├── vite.config.js
+└── vercel.json              # Vercel routing config
 ```
 
 ---
 
 ## ✨ Features
-
-- **8 topics** — Doctor, Shopping, Family, Greetings, Travel, Phone, Bank, Eating
-- **Infinite AI rounds** — Each completed round generates harder sentences via Claude AI
-- **3-step lessons** — See & Hear → Voice repeat → Word matching puzzle
-- **AI conversation** — Practice with Meera Didi roleplay bot after each round
-- **Hindi support** — All instructions in Hindi, AI translates every sentence
-- **Voice input** — Speak your answers, no typing needed
-- **Text-to-speech** — Every sentence read aloud slowly in Indian English
-- **Progress saved** — Never lose your progress (stored in browser)
-- **PWA** — Installable on phone like a native app, works offline*
-
-*Lesson content needs internet. AI features need internet.
-
----
-
-Made with ❤️ for rural elderly India.
+- **8 topics** — infinite AI-generated rounds that get harder each time
+- **3-step lessons** — See & Hear → Voice Repeat → Word Match puzzle
+- **Meera Didi AI tutor** — leads real conversations, corrects errors invisibly, does small talk
+- **8 conversation scenarios** — Market, Doctor, Family, Travel and more
+- **Auto level-up** — Beginner → Intermediate → Advanced automatically
+- **Hindi translations** — every AI sentence has Hindi meaning below it
+- **Voice input** — speak your answers, no typing needed
+- **Text-to-speech** — every sentence read aloud in slow Indian English
+- **Progress saved** — stored in browser, never lost
+- **PWA** — installable on phone like a native app

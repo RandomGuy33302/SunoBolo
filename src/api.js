@@ -1,26 +1,27 @@
-const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-20250514'
+// All Claude API calls go through /api/chat (our Vercel serverless proxy).
+// This avoids the CORS preflight block that happens with direct browser→Anthropic calls.
+
+const PROXY = '/api/chat'
+const MODEL  = 'claude-sonnet-4-20250514'
 
 // ── Speech helpers ────────────────────────────────────────────────────────────
 function ensureVoices() {
   return new Promise(resolve => {
     const voices = window.speechSynthesis.getVoices()
     if (voices.length > 0) { resolve(voices); return }
-    let resolved = false
+    let done = false
     window.speechSynthesis.onvoiceschanged = () => {
-      if (!resolved) { resolved = true; resolve(window.speechSynthesis.getVoices()) }
+      if (!done) { done = true; resolve(window.speechSynthesis.getVoices()) }
     }
-    // Fallback timeout — some browsers never fire onvoiceschanged
-    setTimeout(() => { if (!resolved) { resolved = true; resolve(window.speechSynthesis.getVoices()) } }, 1500)
+    setTimeout(() => { if (!done) { done = true; resolve(window.speechSynthesis.getVoices()) } }, 1500)
   })
 }
 
 export async function speakEnglish(text, rate = 0.78) {
   if (!window.speechSynthesis || !text?.trim()) return
   window.speechSynthesis.cancel()
-  // Small delay so cancel() finishes before new utterance starts
   await new Promise(r => setTimeout(r, 80))
-  const u = new SpeechSynthesisUtterance(text.trim())
+  const u      = new SpeechSynthesisUtterance(text.trim())
   u.lang  = 'en-IN'
   u.rate  = rate
   u.pitch = 1.05
@@ -38,7 +39,7 @@ export async function speakHindi(text) {
   if (!window.speechSynthesis || !text?.trim()) return
   window.speechSynthesis.cancel()
   await new Promise(r => setTimeout(r, 80))
-  const u     = new SpeechSynthesisUtterance(text.trim())
+  const u      = new SpeechSynthesisUtterance(text.trim())
   u.lang  = 'hi-IN'
   u.rate  = 0.82
   const voices = await ensureVoices()
@@ -47,33 +48,22 @@ export async function speakHindi(text) {
   window.speechSynthesis.speak(u)
 }
 
-export function stopSpeech() {
-  window.speechSynthesis?.cancel()
-}
+export function stopSpeech() { window.speechSynthesis?.cancel() }
 
-// ── Claude API ────────────────────────────────────────────────────────────────
-// The `anthropic-dangerous-direct-browser-only-key` header is REQUIRED for
-// browser-side calls. Without it the API returns 401 silently in some setups.
+// ── Claude API via proxy ──────────────────────────────────────────────────────
 export async function callClaude(messages, systemPrompt = '') {
-  const body = {
-    model: MODEL,
-    max_tokens: 1000,
-    messages,
-  }
+  const body = { model: MODEL, max_tokens: 1000, messages }
   if (systemPrompt) body.system = systemPrompt
 
-  const res = await fetch(ANTHROPIC_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'anthropic-dangerous-direct-browser-only-key': 'true',
-    },
-    body: JSON.stringify(body),
+  const res = await fetch(PROXY, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
   })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err?.error?.message || `API error ${res.status}`)
+    throw new Error(err?.error || `API error ${res.status}`)
   }
 
   const data = await res.json()
@@ -91,7 +81,7 @@ export async function translateToHindi(sentence) {
 // ── Generate next round sentences ─────────────────────────────────────────────
 export async function generateNextRoundSentences(topic, round, prevSentences) {
   const difficulty =
-    round <= 2 ? 'very short and simple (4–6 words)' :
+    round <= 2 ? 'very short and simple (4–6 words)'      :
     round <= 4 ? 'medium length, more specific (7–10 words)' :
                  'full conversational (10–15 words)'
 
@@ -122,12 +112,8 @@ Example: ["Sentence one.","Sentence two.","Sentence three.","Sentence four.","Se
 export function loadProgress() {
   try { return JSON.parse(localStorage.getItem('sunobolo_progress') || '{}') } catch { return {} }
 }
-export function saveProgress(p) {
-  localStorage.setItem('sunobolo_progress', JSON.stringify(p))
-}
+export function saveProgress(p)    { localStorage.setItem('sunobolo_progress', JSON.stringify(p)) }
 export function loadSentenceCache() {
   try { return JSON.parse(localStorage.getItem('sunobolo_sentences') || '{}') } catch { return {} }
 }
-export function saveSentenceCache(c) {
-  localStorage.setItem('sunobolo_sentences', JSON.stringify(c))
-}
+export function saveSentenceCache(c) { localStorage.setItem('sunobolo_sentences', JSON.stringify(c)) }
