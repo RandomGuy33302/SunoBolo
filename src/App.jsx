@@ -12,29 +12,46 @@ import TopicIntroScreen      from './TopicIntroScreen.jsx'
 import LessonScreen          from './LessonScreen.jsx'
 import CelebrationScreen     from './CelebrationScreen.jsx'
 import AiConversationScreen  from './AiConversationScreen.jsx'
+import EmergencyScreen       from './EmergencyScreen.jsx'
+import SpeedTrainerScreen    from './SpeedTrainerScreen.jsx'
+import PointLearnScreen      from './PointLearnScreen.jsx'
+import MeeraHelperScreen     from './MeeraHelperScreen.jsx'
 import { LoadingScreen }     from './components.jsx'
 
-export default function App() {
-  // Screens: home | topicIntro | lesson | celebration | aiChat
-  const [screen,          setScreen]         = useState('home')
-  const [selectedTopic,   setSelectedTopic]  = useState(null)
-  const [currentSentences,setCurrentSentences] = useState([])
-  const [sentenceIndex,   setSentenceIndex]  = useState(0)
-  const [loadingRound,    setLoadingRound]   = useState(false)
+// Screens: home | topicIntro | lesson | celebration | aiChat
+//          emergency | speedTrainer | pointLearn | meeraHelper
 
-  const [progress,      setProgressState] = useState(loadProgress)
+export default function App() {
+  const [screen,           setScreen]          = useState('home')
+  const [selectedTopic,    setSelectedTopic]   = useState(null)
+  const [currentSentences, setCurrentSentences]= useState([])
+  const [sentenceIndex,    setSentenceIndex]   = useState(0)
+  const [loadingRound,     setLoadingRound]    = useState(false)
+
+  const [progress,      setProgressState]     = useState(loadProgress)
   const [sentenceCache, setSentenceCacheState] = useState(loadSentenceCache)
 
-  function updateProgress(p)   { setProgressState(p);          saveProgress(p) }
-  function updateCache(c)      { setSentenceCacheState(c);      saveSentenceCache(c) }
+  function updateProgress(p) { setProgressState(p);      saveProgress(p) }
+  function updateCache(c)    { setSentenceCacheState(c);  saveSentenceCache(c) }
 
-  // ── Topic selected from home ──────────────────────────────────────────────
+  // ── Feature card navigation ───────────────────────────────────────────────
+  function handleFeature(id) {
+    const map = {
+      aiChat:       'aiChat',
+      emergency:    'emergency',
+      speedTrainer: 'speedTrainer',
+      pointLearn:   'pointLearn',
+      meeraHelper:  'meeraHelper',
+    }
+    if (map[id]) setScreen(map[id])
+  }
+
+  // ── Topic lesson flow ─────────────────────────────────────────────────────
   function handleSelectTopic(topic) {
     setSelectedTopic(topic)
     setScreen('topicIntro')
   }
 
-  // ── Start a lesson round (fetch/generate sentences) ───────────────────────
   async function handleStartLesson() {
     const p     = progress[selectedTopic.id] || { round: 1, completed: 0 }
     const round = p.round
@@ -66,13 +83,12 @@ export default function App() {
     setScreen('lesson')
   }
 
-  // ── Complete one sentence in lesson ───────────────────────────────────────
   function handleLessonComplete() {
     const next = sentenceIndex + 1
     if (next < currentSentences.length) {
       setSentenceIndex(next)
     } else {
-      const p   = progress[selectedTopic.id] || { round: 1, completed: 0 }
+      const p = progress[selectedTopic.id] || { round: 1, completed: 0 }
       updateProgress({
         ...progress,
         [selectedTopic.id]: {
@@ -85,6 +101,7 @@ export default function App() {
   }
 
   const currentRound = selectedTopic ? (progress[selectedTopic.id]?.round || 1) : 1
+  const goHome       = () => setScreen('home')
 
   if (loadingRound) return <LoadingScreen topic={selectedTopic} />
 
@@ -93,9 +110,29 @@ export default function App() {
       {screen === 'home' && (
         <HomeScreen
           progress={progress}
+          onFeature={handleFeature}
           onSelect={handleSelectTopic}
-          onAiChat={() => setScreen('aiChat')}
         />
+      )}
+
+      {screen === 'aiChat' && (
+        <AiConversationScreen onBack={goHome} />
+      )}
+
+      {screen === 'emergency' && (
+        <EmergencyScreen onBack={goHome} />
+      )}
+
+      {screen === 'speedTrainer' && (
+        <SpeedTrainerScreen onBack={goHome} />
+      )}
+
+      {screen === 'pointLearn' && (
+        <PointLearnScreen onBack={goHome} />
+      )}
+
+      {screen === 'meeraHelper' && (
+        <MeeraHelperScreen onBack={goHome} />
       )}
 
       {screen === 'topicIntro' && selectedTopic && (
@@ -103,7 +140,7 @@ export default function App() {
           topic={selectedTopic}
           progress={progress}
           onStart={handleStartLesson}
-          onBack={() => setScreen('home')}
+          onBack={goHome}
         />
       )}
 
@@ -122,13 +159,7 @@ export default function App() {
           topic={selectedTopic}
           round={currentRound - 1}
           onPractice={() => setScreen('aiChat')}
-          onHome={() => setScreen('home')}
-        />
-      )}
-
-      {screen === 'aiChat' && (
-        <AiConversationScreen
-          onBack={() => setScreen('home')}
+          onHome={goHome}
         />
       )}
     </>

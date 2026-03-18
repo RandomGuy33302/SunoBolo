@@ -1,6 +1,6 @@
 // api/chat.js — Vercel serverless function (CommonJS)
-// Uses Groq API (FREE) — https://console.groq.com
-// Set GROQ_API_KEY in Vercel Project Settings → Environment Variables
+// Groq API proxy — handles text + vision models
+// FREE at console.groq.com — set GROQ_API_KEY in Vercel env vars
 
 const https = require('https')
 
@@ -30,29 +30,33 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
     res.status(500).json({
-      error: 'GROQ_API_KEY not set. Go to Vercel → your Project → Settings → Environment Variables → add GROQ_API_KEY. Get your free key at console.groq.com'
+      error: 'GROQ_API_KEY not set. Go to Vercel → your Project (not Team) → Settings → Environment Variables → add GROQ_API_KEY. Get free key at console.groq.com'
     })
     return
   }
 
-  // ── Build Groq request ────────────────────────────────────────────────────
-  // Groq uses OpenAI-compatible format.
-  // System prompt goes as first message with role "system".
-  const { messages, system, max_tokens } = body
+  // ── Build request ─────────────────────────────────────────────────────────
+  const { messages, system, model, max_tokens, temperature } = body
 
-  const groqMessages = [
-    ...(system ? [{ role: 'system', content: system }] : []),
-    ...messages,
-  ]
+  // For vision model: messages already contain image_url content arrays
+  // For text model: wrap system into messages array (OpenAI format)
+  const groqMessages = system
+    ? [{ role: 'system', content: system }, ...messages]
+    : messages
+
+  // Choose model:
+  // - llama-3.2-11b-vision-preview for image tasks
+  // - llama-3.3-70b-versatile for text/conversation (default)
+  const groqModel = model || 'llama-3.3-70b-versatile'
 
   const payload = JSON.stringify({
-    model:       'llama-3.3-70b-versatile',   // Best free Groq model — very capable
-    max_tokens:  max_tokens || 1000,
+    model:       groqModel,
+    max_tokens:  max_tokens  || 1200,
+    temperature: temperature || 0.85,
     messages:    groqMessages,
-    temperature: 0.85,                         // Slightly creative for natural conversation
   })
 
-  // ── Call Groq API ─────────────────────────────────────────────────────────
+  // ── Call Groq ─────────────────────────────────────────────────────────────
   try {
     const data = await new Promise((resolve, reject) => {
       const options = {
@@ -71,14 +75,12 @@ module.exports = async function handler(req, res) {
         apiRes.on('data', chunk => { raw += chunk })
         apiRes.on('end', () => {
           try {
-            const parsed = JSON.parse(raw)
-            resolve({ status: apiRes.statusCode, body: parsed })
+            resolve({ status: apiRes.statusCode, body: JSON.parse(raw) })
           } catch (e) {
             reject(new Error('Failed to parse Groq response: ' + raw.slice(0, 300)))
           }
         })
       })
-
       request.on('error', reject)
       request.write(payload)
       request.end()
@@ -91,15 +93,12 @@ module.exports = async function handler(req, res) {
       return
     }
 
-    // ── Convert Groq (OpenAI format) response → Anthropic format ─────────────
-    // Our frontend expects: { content: [{ text: "..." }] }
-    const groqText = data.body?.choices?.[0]?.message?.content || ''
-    res.status(200).json({
-      content: [{ type: 'text', text: groqText }]
-    })
+    // Convert Groq (OpenAI) format → Anthropic format expected by frontend
+    const text = data.body?.choices?.[0]?.message?.content || ''
+    res.status(200).json({ content: [{ type: 'text', text }] })
 
   } catch (err) {
-    console.error('[/api/chat] fetch error:', err.message)
+    console.error('[/api/chat] error:', err.message)
     res.status(500).json({ error: err.message })
   }
 }

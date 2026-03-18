@@ -1,7 +1,143 @@
 import { C, TOPICS } from './constants.js'
 import { MeeraDidi } from './components.jsx'
 
-export default function HomeScreen({ progress, onSelect, onAiChat }) {
+const FEATURE_CARDS = [
+  {
+    id:      'aiChat',
+    emoji:   '🙋‍♀️',
+    title:   'AI से बात करो',
+    en:      'Talk to Meera Didi',
+    desc:    'मीरा दीदी से real English conversation करें',
+    pills:   ['🎤 Voice', '✏️ Auto Corrects', '📈 Gets Harder'],
+    bg:      'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
+    badge:   '● LIVE',
+    badgeBg: '#22c55e',
+    glow:    'rgba(255,184,48,0.3)',
+  },
+  {
+    id:      'emergency',
+    emoji:   '🆘',
+    title:   'Emergency Phrases',
+    en:      'Zaroorat ki Baatein',
+    desc:    'ज़रूरत पड़ने पर — instant English phrases',
+    pills:   ['🏥 Hospital', '🚔 Safety', '🔄 Daily'],
+    bg:      'linear-gradient(135deg, #7b0000, #c0392b, #e74c3c)',
+    badge:   '⚡ INSTANT',
+    badgeBg: '#ff6b35',
+    glow:    'rgba(231,76,60,0.3)',
+  },
+  {
+    id:      'speedTrainer',
+    emoji:   '🗣️',
+    title:   'Speed Trainer',
+    en:      'Dheere se Tez',
+    desc:    'धीरे → normal speed — कान को असली English की आदत',
+    pills:   ['🐢 Slow', '🚶 Normal', '🏃 Fast'],
+    bg:      'linear-gradient(135deg, #134e5e, #1a6b5e, #27AE60)',
+    badge:   '👂 LISTEN',
+    badgeBg: '#f39c12',
+    glow:    'rgba(39,174,96,0.3)',
+  },
+  {
+    id:      'pointLearn',
+    emoji:   '📷',
+    title:   'Point & Learn',
+    en:      'Camera se Seekho',
+    desc:    'Photo लें → Hindi में समझें — forms, signs, labels',
+    pills:   ['📋 Forms', '🏷️ Labels', '🔤 Signs'],
+    bg:      'linear-gradient(135deg, #1a1a6e, #2980b9, #3498db)',
+    badge:   '📸 CAMERA',
+    badgeBg: '#9b59b6',
+    glow:    'rgba(52,152,219,0.3)',
+  },
+  {
+    id:      'meeraHelper',
+    emoji:   '🤖',
+    title:   'Meera Helper',
+    en:      'Kuch Bhi Poocho',
+    desc:    'Text, photo, ya bolkar — कोई भी सवाल पूछें',
+    pills:   ['📝 Text', '📷 Photo', '🎤 Voice'],
+    bg:      'linear-gradient(135deg, #3d1a78, #6c3483, #8e44ad)',
+    badge:   '🤖 AI',
+    badgeBg: '#e74c3c',
+    glow:    'rgba(142,68,173,0.3)',
+  },
+]
+
+function FeatureCard({ card, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left',
+        background: card.bg,
+        borderRadius: 26, padding: '20px 18px 18px',
+        boxShadow: `0 10px 36px ${card.glow}`,
+        marginBottom: 14, position: 'relative', overflow: 'hidden',
+        transition: 'transform 0.16s',
+      }}
+      onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+      onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+      onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+    >
+      {/* Glow decoration */}
+      <div style={{
+        position: 'absolute', top: -30, right: -20, width: 130, height: 130,
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${card.glow} 0%, transparent 70%)`,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Row: emoji + text + badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, position: 'relative' }}>
+        <div style={{
+          width: 58, height: 58, borderRadius: '50%', flexShrink: 0,
+          background: 'rgba(255,255,255,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 30,
+          boxShadow: '0 0 0 2px rgba(255,255,255,0.2)',
+        }}>{card.emoji}</div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 20, fontFamily: "'Baloo 2', cursive", fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+              {card.title}
+            </span>
+            <span style={{
+              background: card.badgeBg, borderRadius: 20, padding: '2px 9px',
+              fontSize: 11, color: '#fff', fontFamily: "'Baloo 2', cursive", fontWeight: 700,
+            }}>{card.badge}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, fontFamily: "'Baloo 2', cursive", color: 'rgba(255,255,255,0.7)' }}>
+            {card.en}
+          </p>
+        </div>
+      </div>
+
+      {/* Hindi description */}
+      <p style={{
+        margin: '0 0 12px', position: 'relative',
+        fontSize: 13, fontFamily: "'Noto Sans Devanagari', sans-serif",
+        color: 'rgba(255,255,255,0.82)', lineHeight: 1.5,
+      }}>{card.desc}</p>
+
+      {/* Pills */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', position: 'relative' }}>
+        {card.pills.map((pill, i) => (
+          <span key={i} style={{
+            background: 'rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 20, padding: '4px 11px',
+            fontSize: 12, color: 'rgba(255,255,255,0.88)',
+            fontFamily: "'Baloo 2', cursive",
+          }}>{pill}</span>
+        ))}
+      </div>
+    </button>
+  )
+}
+
+export default function HomeScreen({ progress, onFeature, onSelect }) {
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #fff8ee 0%, #fff1d6 100%)' }}>
 
@@ -29,96 +165,28 @@ export default function HomeScreen({ progress, onSelect, onAiChat }) {
       {/* ── Meera Didi greeting ── */}
       <div style={{ padding: '0 16px' }}>
         <MeeraDidi
-          message="Namaste! Aaj kya seekhna chahte hain?"
-          hindi="नमस्ते! आज क्या सीखना चाहते हैं?"
+          message="Namaste! Aaj kya karna chahte hain?"
+          hindi="नमस्ते! आज क्या करना चाहते हैं?"
         />
       </div>
 
       <div style={{ padding: '0 16px 40px' }}>
 
-        {/* ════════════════════════════════════════════════════════
-            AI SE BAAT KARO — Full-width hero feature card
-        ════════════════════════════════════════════════════════ */}
-        <button
-          onClick={onAiChat}
-          style={{
-            width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left',
-            background: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
-            borderRadius: 28, padding: '22px 20px 20px',
-            boxShadow: '0 12px 40px rgba(15,32,39,0.45)',
-            marginBottom: 24, position: 'relative', overflow: 'hidden',
-            transition: 'transform 0.18s',
-          }}
-          onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-          onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-          onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-        >
-          {/* Decorative glow blobs */}
-          <div style={{
-            position: 'absolute', top: -30, right: -20, width: 140, height: 140,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,184,48,0.3) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{
-            position: 'absolute', bottom: -40, left: '25%', width: 120, height: 120,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,107,0,0.22) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-
-          {/* Top row — avatar + title + live badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, position: 'relative', marginBottom: 14 }}>
-            <div style={{
-              width: 66, height: 66, borderRadius: '50%', flexShrink: 0,
-              background: `linear-gradient(135deg, ${C.saffron}, ${C.gold})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 34,
-              boxShadow: `0 0 0 3px rgba(255,184,48,0.35), 0 6px 20px rgba(0,0,0,0.3)`,
-            }}>🙋‍♀️</div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 22, fontFamily: "'Baloo 2', cursive", fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                  AI से बात करो
-                </span>
-                <span style={{
-                  background: '#22c55e', borderRadius: 20, padding: '2px 9px',
-                  fontSize: 11, color: '#fff', fontFamily: "'Baloo 2', cursive", fontWeight: 700,
-                  letterSpacing: 0.5,
-                }}>● LIVE</span>
-              </div>
-              <p style={{ margin: 0, fontSize: 13, fontFamily: "'Baloo 2', cursive", color: 'rgba(255,255,255,0.72)', lineHeight: 1.4 }}>
-                Talk to Meera Didi — your personal English conversation tutor
-              </p>
-            </div>
-          </div>
-
-          {/* Description in Hindi */}
-          <p style={{
-            margin: '0 0 14px', position: 'relative',
-            fontSize: 14, fontFamily: "'Noto Sans Devanagari', sans-serif",
-            color: 'rgba(255,184,48,0.92)', lineHeight: 1.5,
-          }}>
-            मीरा दीदी आपसे real English conversation करेंगी, गलती को धीरे से सुधारेंगी, और नए शब्द सिखाएँगी 🌟
+        {/* ══ Feature cards section ══ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,107,0,0.15)' }} />
+          <p style={{ margin: 0, fontSize: 15, color: C.textMid, fontFamily: "'Noto Sans Devanagari', sans-serif", whiteSpace: 'nowrap' }}>
+            ✨ Special Features
           </p>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,107,0,0.15)' }} />
+        </div>
 
-          {/* Feature pills */}
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', position: 'relative' }}>
-            {['🎤 Voice', '🧠 Smart Tutor', '✏️ Auto Corrects', '💬 Real Conversation', '📈 Gets Harder'].map((tag, i) => (
-              <span key={i} style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.18)',
-                borderRadius: 20, padding: '4px 11px',
-                fontSize: 12, color: 'rgba(255,255,255,0.82)',
-                fontFamily: "'Baloo 2', cursive",
-              }}>{tag}</span>
-            ))}
-          </div>
-        </button>
+        {FEATURE_CARDS.map(card => (
+          <FeatureCard key={card.id} card={card} onClick={() => onFeature(card.id)} />
+        ))}
 
-        {/* ── Section divider ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        {/* ══ Topic lessons section ══ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 16px' }}>
           <div style={{ flex: 1, height: 1, background: 'rgba(255,107,0,0.15)' }} />
           <p style={{ margin: 0, fontSize: 15, color: C.textMid, fontFamily: "'Noto Sans Devanagari', sans-serif", whiteSpace: 'nowrap' }}>
             📚 Topic Lessons
